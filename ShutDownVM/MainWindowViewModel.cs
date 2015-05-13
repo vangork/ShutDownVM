@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
@@ -93,6 +94,8 @@ namespace ShutDownVM
             }
         }
 
+        private VirtualMachineManagement azureVmManagement;
+
         public MainWindowViewModel()
         {
             // initial subscription
@@ -107,6 +110,7 @@ namespace ShutDownVM
                     subscription = new AzureSubscription(p.Attribute("Name").Value, p.Attribute("Id").Value, p.Attribute("ManagementCertificate").Value);
                 }
             }
+            azureVmManagement = new VirtualMachineManagement(subscription, new PropertyInvoker("OutputLog", this));
 
             // initialize ServerName textbox and Check Bottun Text
             ServerName = System.Environment.MachineName.ToString();
@@ -129,16 +133,14 @@ namespace ShutDownVM
             if (CheckBTNText == "Check")
             {
                 CheckBTNText = "Cancel";
-
-                var AzureVmManagement = new VirtualMachineManagement(subscription, new PropertyInvoker("OutputLog", this));
-
+                
                 if (NewService == null || NewService.Length == 0)
                 {
                     Task task = Task.Factory.StartNew(() =>
                     {
-                        vmList = null;
                         thread = Thread.CurrentThread;
-                        vmList = AzureVmManagement.List();
+                        vmList = null;
+                        vmList = azureVmManagement.List();
 
                     }).ContinueWith(s =>
                         {
@@ -172,16 +174,31 @@ namespace ShutDownVM
                 }
                 else
                 {
-                    string aa = ServerName;
-                    string bb = NewService;
+                    Task task = Task.Factory.StartNew(() =>
+                    {
+                        thread = Thread.CurrentThread;
+                        XDocument vm;
+                        HttpStatusCode status = azureVmManagement.Get(NewService, NewService, ServerName, out vm);
+                        if (status == HttpStatusCode.OK)
+                        {
+                            IsShutDownEnable = true;
+                            OutputLog += string.Format("Result: Verified!\nPlease click on the Shut Down button to proceed...\n");
+                        }
+                        else
+                        {
+                            
+                            OutputLog += string.Format("Result: Cloud Service or Server is not available!\nPlease check again!\n");
+                        }
+                        CheckBTNText = "Check";
+                    });
+                    
                 }
             }
             else
             {
                 thread.Abort();
-                OutputLog += string.Format("Check canceled\n");
-
                 CheckBTNText = "Check";
+                OutputLog += string.Format("Check canceled\n");
             }
 
 
@@ -196,6 +213,7 @@ namespace ShutDownVM
             //var status = AzureVmManagement.Shutdown(CloudServiceName, CloudServiceName, VmName);
             string aa = ServerName;
             string bb = SelectServiceName;
+
         }
 
     }
