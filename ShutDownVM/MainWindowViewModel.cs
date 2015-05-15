@@ -14,15 +14,17 @@ namespace ShutDownVM
     public class MainWindowViewModel : BindableBase
     {
         private string serverName;
+        private ObservableCollection<string> serviceNames;
         private string selectServiceName;
-        private ObservableCollection<string> serviceName;
+        private string serviceName;
         private string outputLog;
         private bool isEditableOn;
         private bool isShutDownEnable;
+        private bool isInputEnable;
         private string checkBTNText;
-        private List<VirtualMachine> vmList;
         private Thread thread;
         private AzureSubscription subscription;
+        //private List<VirtualMachine> vmList;
 
         public string ServerName
         {
@@ -34,7 +36,9 @@ namespace ShutDownVM
 
                 // set ShutDown button disabled && ComboBox Editable enabled
                 IsShutDownEnable = false;
-                isEditableOn = false;
+                ServiceNames.Clear();
+                ServiceName = null;
+
             }
         }
         public string SelectServiceName
@@ -46,9 +50,16 @@ namespace ShutDownVM
                 OnPropertyChanged();
             }
         }
-        public string NewService { set; get; }
-
-        public ObservableCollection<string> ServiceName
+        public ObservableCollection<string> ServiceNames
+        {
+            get { return serviceNames; }
+            set
+            {
+                serviceNames = value;
+                OnPropertyChanged();
+            }
+        }
+        public string ServiceName
         {
             get { return serviceName; }
             set
@@ -84,6 +95,15 @@ namespace ShutDownVM
                 OnPropertyChanged();
             }
         }
+        public bool IsInputEnable
+        {
+            get { return isInputEnable; }
+            set
+            {
+                isInputEnable = value;
+                OnPropertyChanged();
+            }
+        }
         public string CheckBTNText
         {
             get { return checkBTNText; }
@@ -113,13 +133,14 @@ namespace ShutDownVM
             azureVmManagement = new VirtualMachineManagement(subscription, new PropertyInvoker("OutputLog", this));
 
             // initialize ServerName textbox and Check Bottun Text
+            ServiceNames = new ObservableCollection<string>();
             ServerName = System.Environment.MachineName.ToString();
-            CheckBTNText = "Check";
 
-            isEditableOn = true;
             IsShutDownEnable = false;
+            isEditableOn = true;
+            IsInputEnable = true;
 
-            ServiceName = new ObservableCollection<string>();
+            CheckBTNText = "Check";
             OutputLog = "Welcome to Microsoft Azure Management Tool!\n";
             OutputLog += string.Format("Current Server Name is: {0}\n", ServerName);
         }
@@ -133,74 +154,80 @@ namespace ShutDownVM
             if (CheckBTNText == "Check")
             {
                 CheckBTNText = "Cancel";
-                
-                if (NewService == null || NewService.Length == 0)
+                IsInputEnable = false;
+                ServiceNames.Clear();
+
+                List<VirtualMachine> vmList = null;
+
+                if (ServiceName == null || ServiceName.Length == 0)
                 {
                     Task task = Task.Factory.StartNew(() =>
                     {
                         thread = Thread.CurrentThread;
                         vmList = null;
                         vmList = azureVmManagement.List();
-
-                    }).ContinueWith(s =>
+                                               
+                    }).ContinueWith(s=>
+                    {
+                        if (vmList != null && s.Status == TaskStatus.RanToCompletion)
                         {
-                            CheckBTNText = "Check";
-
-                            if (vmList != null && s.Status == TaskStatus.RanToCompletion)
+                            foreach (var p in vmList)
                             {
-                                foreach (var p in vmList)
-                                {
-                                    if (p.Name.ToLower() == ServerName.ToLower())
-                                        ServiceName.Add(p.Service);
-                                   
-                                }
-                                if (ServiceName.Count > 0)
-                                {
-                                    OutputLog += string.Format("Result: {0} Cloud Service found hosting server: {1}\nPlease Select!\n", ServiceName.Count, ServerName);
+                                if (p.Name.ToLower() == ServerName.ToLower())
+                                    ServiceNames.Add(p.Service);
 
-                                    SelectServiceName = ServiceName[0];
-                                    IsShutDownEnable = true;
-
-
-                                }
-                                else
-                                {
-                                    OutputLog += string.Format("Result: No Cloud Service host server: {0}\nPlease check again!\n", ServerName);
-                                }
                             }
 
-                        }, TaskScheduler.FromCurrentSynchronizationContext());
+                            if (ServiceNames.Count > 0)
+                            {
+                                ServiceNames.Add("test");
+                                IsShutDownEnable = true;
+                                OutputLog += string.Format("Result: {0} Cloud Service found hosting server: {1}\nPlease Select!\n", ServiceNames.Count, ServerName);
+                                ServiceName = ServiceNames[0];
+                                
+                            }
+                            else
+                            {
+                                OutputLog += string.Format("Result: No Cloud Service host server: {0}\nPlease check again!\n", ServerName);
+                            }
+                        }
 
+                        CheckBTNText = "Check";
+                        IsInputEnable = true;
+                        
+                    }, TaskScheduler.FromCurrentSynchronizationContext());
                 }
                 else
                 {
+                    HttpStatusCode status = 0;
                     Task task = Task.Factory.StartNew(() =>
                     {
                         thread = Thread.CurrentThread;
                         XDocument vm;
-                        HttpStatusCode status = azureVmManagement.Get(NewService, NewService, ServerName, out vm);
-                        if (status == HttpStatusCode.OK)
+                        status = azureVmManagement.Get(ServiceName, ServiceName, ServerName, out vm);
+                    }).ContinueWith(s=>
+                    {
+                        if (status == HttpStatusCode.OK && s.Status == TaskStatus.RanToCompletion)
                         {
                             IsShutDownEnable = true;
                             OutputLog += string.Format("Result: Verified!\nPlease click on the Shut Down button to proceed...\n");
                         }
                         else
                         {
-                            
+
                             OutputLog += string.Format("Result: Cloud Service or Server is not available!\nPlease check again!\n");
                         }
+
                         CheckBTNText = "Check";
-                    });
-                    
+                        IsInputEnable = true;
+                    },TaskScheduler.FromCurrentSynchronizationContext());
                 }
             }
             else
             {
                 thread.Abort();
-                CheckBTNText = "Check";
                 OutputLog += string.Format("Check canceled\n");
             }
-
 
         }
 
@@ -212,7 +239,7 @@ namespace ShutDownVM
         {
             //var status = AzureVmManagement.Shutdown(CloudServiceName, CloudServiceName, VmName);
             string aa = ServerName;
-            string bb = SelectServiceName;
+            string bb = ServiceName;
 
         }
 

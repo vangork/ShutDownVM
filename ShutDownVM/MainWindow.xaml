@@ -6,13 +6,13 @@
         xmlns:local="clr-namespace:ShutDownVM"
         mc:Ignorable="d"
         Title="ShutDown VM"
-        Height="300" Width="300">
+        Height="350" Width="400">
 
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="1*"/>
-            <ColumnDefinition Width="1*"/>
-            <ColumnDefinition Width="1*"/>
+            <ColumnDefinition Width="100"/>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="100"/>
         </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
             <RowDefinition Height="25"/>
@@ -22,14 +22,15 @@
 
         <Label Content="Server Name" Grid.Column="0" Grid.Row="0" VerticalAlignment="Center"/>
         <TextBox Height="20" Grid.Column="1" Grid.Row="0" VerticalAlignment="Center" 
-                 Text="{Binding Path=ServerName, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"/>
+                 Text="{Binding Path=ServerName, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}" 
+                 IsEnabled="{Binding IsInputEnable}"/>
 
         <Label Content="Service Name" Grid.Column="0" Grid.Row="1" VerticalAlignment="Center"/>
         <ComboBox IsEditable="{Binding IsEditableOn}" StaysOpenOnEdit="False" IsTextSearchEnabled="True"
                   Grid.Column="1" Grid.Row="1" VerticalContentAlignment="Center" Height="20"
-                  ItemsSource="{Binding ServiceName}" 
+                  ItemsSource="{Binding ServiceNames}" 
                   SelectedItem="{Binding SelectServiceName, Mode=TwoWay}"
-                  Text="{Binding NewService}"/>
+                  Text="{Binding ServiceName}" IsEnabled="{Binding IsInputEnable}"/>
 
         <Button Grid.Column="2" Grid.Row="0" Margin="10 3 10 3" Command="{Binding Path=CheckCommand}">
             <TextBlock Text="{Binding Path=CheckBTNText}"/>
